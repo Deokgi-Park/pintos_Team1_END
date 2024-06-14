@@ -1,0 +1,515 @@
+<<<<<<< HEAD
+pintos -- -q run alarm-simultaneous
+-q 옵션 프로세스 완료 후 종료
+
+GDB 사용법
+//GDB 환경 구성
+pintos --gdb -- run alarm-simultaneous
+pintos -- -q run alarm-multiple
+pintos --gdb -- -q run alarm-multiple
+gdb kernel.o
+layout src
+target remote localhost:1234
+break lock_acquire
+break list_remove
+break lock_release
+b test_priority_donate_one
+b thread_create
+c
+
+기본 디버깅:
+
+bash
+코드 복사
+gdb ./your_binary
+컨텍스트 보기:
+
+bash
+코드 복사
+(gdb) context
+힙 상태 분석:
+
+bash
+코드 복사
+(gdb) heap
+레지스터 보기:
+
+bash
+코드 복사
+(gdb) context regs
+메모리 맵 보기:
+
+bash
+코드 복사
+(gdb) vmmap
+ROP 가젯 검색:
+
+bash
+코드 복사
+(gdb) rop
+메모리에서 패턴 검색:
+
+bash
+코드 복사
+(gdb) search-pattern <pattern>
+
+메모리 덤프 및 힙 분석:
+
+heap 명령어는 힙 상태를 시각화하고 분석하는 데 유용합니다.
+vis_heap_chunks 명령어를 통해 힙 청크를 시각화할 수 있습니다.
+레지스터와 스택 시각화:
+
+context 명령어는 현재 레지스터, 스택, 디스어셈블된 코드, 소스 코드 등 디버깅에 필요한 정보를 한 화면에 보여줍니다.
+context regs 명령어를 통해 레지스터의 상태를 볼 수 있습니다.
+심볼 및 함수 탐색:
+
+info functions 명령어는 현재 디버그 대상의 모든 함수 목록을 제공합니다.
+search-pattern 명령어를 통해 특정 패턴을 메모리에서 검색할 수 있습니다.
+메모리 보호 및 권한 분석:
+
+vmmap 명령어는 메모리 맵을 시각화하여 메모리 보호 상태를 쉽게 확인할 수 있게 해줍니다.
+편리한 GDB 확장 기능:
+
+rop 명령어는 ROP (Return-Oriented Programming) 가젯을 검색하는 데 사용됩니다.
+nextcall 명령어는 다음 호출되는 함수를 예측합니다.
+
+gdb kernel.o
+layout src
+target remote localhost:1234
+break test_mlfqs_load_1
+
+
+
+//브레이크 거는 법
+break 함수
+break 파일:라인넘버
+break main
+
+//브레이크 포인트 표시
+info breakpoints
+
+//브레이크 포인트 제거
+delete 브레이크번호
+
+//역추적 주소
+bt
+//주소의 함수나 변수명
+p/a 주소
+
+//가상환경 찾기
+sudo netstat -ntlp |grep 1234
+
+// 함수 조사 // 문맥교환 함수?
+schedule()
+
+//쓰레드 얕은 지식
+
+1. 우선 순위 priority 기본 31 max 63 높을 수록 우선도 높음
+
+2. tid 1부터 시작
+
+3. struct list_elem elem;
+=> ready_list(실행 준비가 된 스레드 목록) 또는 의 세마포어를 기다리는 스레드 목록에 넣는 데 사용되는 "목록 요소"
+
+
+4. uint64_t *pml4;
+=> 프로젝트 2 이상에만 존재합니다. 페이지 테이블 을 참조하십시오 .
+
+5. thread_init
+=> 스레드 시스템을 초기화하기 위해 호출
+
+6. thread_start 
+=> main() 스케줄러를 시작하기 위해 호출됩니다 .
+   유휴 스레드, 즉 다른 스레드가 준비되지 않았을 때 예약되는 스레드를 생성합니다.
+
+7. thread_tick 
+=> 타이머 동작  
+
+8. thread_print_stats 
+=> 종료 시 출력 함수
+
+9. thread_create (const char *name, int priority, thread func *func, void *aux);
+=> 주어진 우선순위로 name이라는 새 스레드를 생성하고 시작하여 새 스레드의 tid를 반환합니다. 
+   스레드는 func를 실행하고 aux를 함수의 단일 인수로 전달합니다.
+   스레드는 차단된 상태에서 초기화된 다음 반환 직전에 차단 해제되어 새 스레드를 예약할 수 있습니다.
+
+10. thread_block 
+=> 실행 중인 스레드를 실행 상태에서 차단된 상태로 전환합니다. 
+   스레드는 thread_unblock()호출될 때까지 다시 실행되지 않으므로 이러한 일이 발생하도록 준비하는 것이 좋습니다. 
+      thread_unblock (struct thread *thread);
+      스레드를 준비 상태로 전환하여 실행을 재개할 수 있도록 합니다. 
+
+11. struct thread *thread_current (void);
+=> 현재 실행 중인 스레드 return
+
+12. tid_t thread_tid (void);
+=> 현재 실행 중인 스레드 tid return 
+   thread_current ()->tid​
+
+13. const char *thread_name (void);
+=> 현재 실행 중인 스레드 name return
+   thread_current ()->name
+
+14. void thread_exit (void) NO_RETURN;
+=> 종료
+
+15. void thread_yield (void);
+=> 실행할 새 쓰레드를 선택하는 스케줄러에게 준다
+   새 쓰레드는 현재 쓰레드일 수 있음,
+   Yield the cpu and insert the thread to ready_list.
+
+16. int thread_get_priority (void);
+   void thread_set_priority (int new_priority)
+=> 우선순위 설정 및 가져오기
+
+17. 다음은 고급 스케줄러용
+int thread_get_nice (void);
+void thread_set_nice (int new_nice);
+int thread_get_recent_cpu (void);
+int thread_get_load_avg (void);
+
+
+18. include/threads/interrupt.h
+=> enum intr_level 설정으로 인터럽트 on/off 가능(INTR_OFF 또는 INTR_ON 중 하나)
+=> enum intr_level intr_get_level (void) : 상태확인
+=> enum intr_level intr_set_level (enum intr_level level); : intr_level 확인해서 해당 상태로 전환 return 이전인터럽트상태
+=> enum intr_level intr_enable (void); : 켜기
+=> enum intr_level intr_disable  (void); : 끄기
+
+19. init.c,init.h
+main() 을 포함한 커널 초기화, 
+커널의 초기화되는 항목을 확인하려면 최소한 main program.살펴봐야 합니다 . 
+main() 여기에 자신만의 초기화 코드를 추가할 수도 있습니다.
+
+20. thread.c,thread.h
+기본 스레드 지원. 대부분의 작업은 이 파일에서 이루어집니다. 
+thread.h네 가지 프로젝트 모두에서 수정할 가능성이 있는 구조체 스레드를 정의합니다.
+
+21. palloc.c,palloc.h
+4kB 페이지의 배수로 시스템 메모리를 전달하는 페이지 할당자
+
+22. timer.c,timer.h
+기본적으로 초당 100회 작동하는 시스템 타이머입니다. 이 프로젝트에서 이 코드를 수정합니다
+
+
+동기화
+1. lock
+   락 초기화
+   void lock_init (struct lock *lock);
+   락 acquire
+   bool lock_try_acquire (struct lock *lock); 
+   해제 릴리스
+   void lock_release (struct lock *lock);
+   잠금 여부 체크
+   bool lock_held_by_current_thread (const struct lock *lock):
+
+2. monitor
+   구성
+      - 동기화되는 데이터, 
+      - 모니터 잠금이라고 하는 잠금, 
+      - 하나 이상의 조건 ​​변수
+   동작방식
+      1)보호된 데이터에 액세스하기 전에 먼저 모니터 잠금을 획득
+      2)"모니터내부"에 있다고 합니다. 모니터에 있는 동안 스레드는 보호되는 모든 데이터를 제어할 수 있으며 자유롭게 검사하거나 수정할 수 있습니다
+      3)보호된 데이터에 대한 접근이 완료되면 모니터 잠금이 해제
+   추가 동작
+      조건 변수를 통해 모니터의 코드가 조건이 true가 될 때까지 기다릴 수 있습니다
+      조건이 true가 될 때까지 기다려야 하는 경우 관련 조건 변수를 "대기"하여 잠금을 해제하고 조건이 신호를 받을 때까지 기다립니다
+      웨이터 한 명을 깨우라는 조건을 "신호"하거나 모든 웨이터를 깨우라는 조건을 "브로드캐스트"
+   함수
+      struct condition;
+      조건 변수를 나타냅니다.
+
+      void cond_init (struct condition *cond);
+      cond를 새 조건 변수로 초기화합니다.
+
+      void cond_wait (struct condition *cond, struct lock *lock);
+      잠금(모니터 잠금)을 원자적으로 해제하고 다른 코드 조각이 cond에 신호를 보낼 때까지 기다립니다. 
+      cond가 신호를 받은 후 반환되기 전에 잠금을 다시 획득합니다. 
+      이 함수를 호출하기 전에 잠금을 유지해야 합니다. 
+      신호를 보내고 대기에서 깨어나는 것은 원자적 작업이 아닙니다. 
+      따라서 일반적 cond_wait()으로 의 호출자는 대기가 완료된 후 조건을 다시 확인하고 필요한 경우 다시 기다려야 합니다. 
+      예를 보려면 다음 섹션을 참조하세요.
+
+      void cond_signal (struct condition *cond, struct lock *lock);
+      스레드가 cond(모니터 잠금 잠금으로 보호됨)를 기다리고 있는 경우 이 함수는 스레드 중 하나를 깨웁니다. 
+      대기 중인 스레드가 없으면 어떤 작업도 수행하지 않고 반환됩니다. 
+      이 함수를 호출하기 전에 잠금을 유지해야 합니다.
+
+      void cond_broadcast (struct condition *cond, struct lock *lock);
+      조건을 기다리고 있는 모든 스레드를 깨웁니다(모니터 잠금 잠금으로 보호됨). 이 함수를 호출하기 전에 잠금을 유지해야 합니다.
+
+
+
+과제 1. 
+
+timer_sleep을 수정하고 바쁜대기를 해소할 것
+
+
+시간이 최소 x 타이머 틱만큼 진행될 때까지 호출 스레드의 실행을 일시 중단합니다.
+--그동안 타임인터럽트 정지 필요
+
+시스템이 유휴 상태가 아닌 이상 스레드는 정확히 x 틱 후에 깨어날 필요가 없습니다. 
+적절한 시간 동안 기다린 후 준비 대기열에 넣기만 하면 됩니다.
+
+
+과제 2.
+
+ - 현재 실행 중인 스레드보다 우선순위가 높은 준비 목록에 스레드가 추가되면 현재 스레드는 즉시 프로세서를 새 스레드에 양보해야 합니다. 
+ - 스레드가 잠금, 세마포어 또는 조건 변수를 기다리고 있는 경우 
+   우선 순위가 가장 높은 대기 스레드가 먼저 깨어나야 합니다.
+ - 스레드는 언제든지 자체 우선순위를 높이거나 낮출 수 있지만 
+   더 이상 가장 높은 우선순위를 가지지 않도록 우선순위를 낮추면 즉시 CPU를 양보해야 합니다.
+ - 우선순위 역전을 기부하여 해소할 것
+ - 잠금에 대한 우선순위 기부를 구현해야 합니다. 
+ - 스레드가 자체 우선순위를 검사하고 수정할 수 있도록 다음 함수를 구현
+      void thread_set_priority (int new_priority);
+      현재 스레드의 우선순위를 새 우선순위로 설정합니다. 현재 스레드가 더 이상 가장 높은 우선 순위를 갖지 않으면 항복합니다.
+
+      int thread_get_priority (void);
+      현재 스레드의 우선순위를 반환합니다. 우선순위 기부가 있는 경우 더 높은(기부된) 우선순위를 반환합니다.
+
+
+C:\krafton\krafton 8week PintOS\personal_guide
+C:\krafton\krafton 8week PintOS\pintos-kaist\personal_guide
+
+
+
+list_insert_ordered
+(struct list *list, struct list_elem *elem,
+		list_less_func *less, void *aux) {
+list_less_func
+
+=======
+pintos -- -q run alarm-simultaneous
+-q 옵션 프로세스 완료 후 종료
+
+GDB 사용법
+//GDB 환경 구성
+pintos --gdb -- run alarm-simultaneous
+pintos -- -q run alarm-multiple
+pintos --gdb -- -q run alarm-multiple
+gdb kernel.o
+layout src
+target remote localhost:1234
+break lock_acquire
+break list_remove
+break lock_release
+b test_priority_donate_one
+b thread_create
+c
+
+
+
+<<<<<<< HEAD
+gdb kernel.o
+layout src
+target remote localhost:1234
+break test_mlfqs_load_1
+
+
+=======
+>>>>>>> 9384d6e3d7a6df6276a46cfc689ce0e17e7ceb16
+
+//브레이크 거는 법
+break 함수
+break 파일:라인넘버
+break main
+
+//브레이크 포인트 표시
+info breakpoints
+
+//브레이크 포인트 제거
+delete 브레이크번호
+
+//역추적 주소
+bt
+//주소의 함수나 변수명
+p/a 주소
+
+//가상환경 찾기
+sudo netstat -ntlp |grep 1234
+
+// 함수 조사 // 문맥교환 함수?
+schedule()
+
+//쓰레드 얕은 지식
+
+1. 우선 순위 priority 기본 31 max 63 높을 수록 우선도 높음
+
+2. tid 1부터 시작
+
+3. struct list_elem elem;
+=> ready_list(실행 준비가 된 스레드 목록) 또는 의 세마포어를 기다리는 스레드 목록에 넣는 데 사용되는 "목록 요소"
+
+
+4. uint64_t *pml4;
+=> 프로젝트 2 이상에만 존재합니다. 페이지 테이블 을 참조하십시오 .
+
+5. thread_init
+=> 스레드 시스템을 초기화하기 위해 호출
+
+6. thread_start 
+=> main() 스케줄러를 시작하기 위해 호출됩니다 .
+   유휴 스레드, 즉 다른 스레드가 준비되지 않았을 때 예약되는 스레드를 생성합니다.
+
+7. thread_tick 
+=> 타이머 동작  
+
+8. thread_print_stats 
+=> 종료 시 출력 함수
+
+9. thread_create (const char *name, int priority, thread func *func, void *aux);
+=> 주어진 우선순위로 name이라는 새 스레드를 생성하고 시작하여 새 스레드의 tid를 반환합니다. 
+   스레드는 func를 실행하고 aux를 함수의 단일 인수로 전달합니다.
+   스레드는 차단된 상태에서 초기화된 다음 반환 직전에 차단 해제되어 새 스레드를 예약할 수 있습니다.
+
+10. thread_block 
+=> 실행 중인 스레드를 실행 상태에서 차단된 상태로 전환합니다. 
+   스레드는 thread_unblock()호출될 때까지 다시 실행되지 않으므로 이러한 일이 발생하도록 준비하는 것이 좋습니다. 
+      thread_unblock (struct thread *thread);
+      스레드를 준비 상태로 전환하여 실행을 재개할 수 있도록 합니다. 
+
+11. struct thread *thread_current (void);
+=> 현재 실행 중인 스레드 return
+
+12. tid_t thread_tid (void);
+=> 현재 실행 중인 스레드 tid return 
+   thread_current ()->tid​
+
+13. const char *thread_name (void);
+=> 현재 실행 중인 스레드 name return
+   thread_current ()->name
+
+14. void thread_exit (void) NO_RETURN;
+=> 종료
+
+15. void thread_yield (void);
+=> 실행할 새 쓰레드를 선택하는 스케줄러에게 준다
+   새 쓰레드는 현재 쓰레드일 수 있음,
+   Yield the cpu and insert the thread to ready_list.
+
+16. int thread_get_priority (void);
+   void thread_set_priority (int new_priority)
+=> 우선순위 설정 및 가져오기
+
+17. 다음은 고급 스케줄러용
+int thread_get_nice (void);
+void thread_set_nice (int new_nice);
+int thread_get_recent_cpu (void);
+int thread_get_load_avg (void);
+
+
+18. include/threads/interrupt.h
+=> enum intr_level 설정으로 인터럽트 on/off 가능(INTR_OFF 또는 INTR_ON 중 하나)
+=> enum intr_level intr_get_level (void) : 상태확인
+=> enum intr_level intr_set_level (enum intr_level level); : intr_level 확인해서 해당 상태로 전환 return 이전인터럽트상태
+=> enum intr_level intr_enable (void); : 켜기
+=> enum intr_level intr_disable  (void); : 끄기
+
+19. init.c,init.h
+main() 을 포함한 커널 초기화, 
+커널의 초기화되는 항목을 확인하려면 최소한 main program.살펴봐야 합니다 . 
+main() 여기에 자신만의 초기화 코드를 추가할 수도 있습니다.
+
+20. thread.c,thread.h
+기본 스레드 지원. 대부분의 작업은 이 파일에서 이루어집니다. 
+thread.h네 가지 프로젝트 모두에서 수정할 가능성이 있는 구조체 스레드를 정의합니다.
+
+21. palloc.c,palloc.h
+4kB 페이지의 배수로 시스템 메모리를 전달하는 페이지 할당자
+
+22. timer.c,timer.h
+기본적으로 초당 100회 작동하는 시스템 타이머입니다. 이 프로젝트에서 이 코드를 수정합니다
+
+
+동기화
+1. lock
+   락 초기화
+   void lock_init (struct lock *lock);
+   락 acquire
+   bool lock_try_acquire (struct lock *lock); 
+   해제 릴리스
+   void lock_release (struct lock *lock);
+   잠금 여부 체크
+   bool lock_held_by_current_thread (const struct lock *lock):
+
+2. monitor
+   구성
+      - 동기화되는 데이터, 
+      - 모니터 잠금이라고 하는 잠금, 
+      - 하나 이상의 조건 ​​변수
+   동작방식
+      1)보호된 데이터에 액세스하기 전에 먼저 모니터 잠금을 획득
+      2)"모니터내부"에 있다고 합니다. 모니터에 있는 동안 스레드는 보호되는 모든 데이터를 제어할 수 있으며 자유롭게 검사하거나 수정할 수 있습니다
+      3)보호된 데이터에 대한 접근이 완료되면 모니터 잠금이 해제
+   추가 동작
+      조건 변수를 통해 모니터의 코드가 조건이 true가 될 때까지 기다릴 수 있습니다
+      조건이 true가 될 때까지 기다려야 하는 경우 관련 조건 변수를 "대기"하여 잠금을 해제하고 조건이 신호를 받을 때까지 기다립니다
+      웨이터 한 명을 깨우라는 조건을 "신호"하거나 모든 웨이터를 깨우라는 조건을 "브로드캐스트"
+   함수
+      struct condition;
+      조건 변수를 나타냅니다.
+
+      void cond_init (struct condition *cond);
+      cond를 새 조건 변수로 초기화합니다.
+
+      void cond_wait (struct condition *cond, struct lock *lock);
+      잠금(모니터 잠금)을 원자적으로 해제하고 다른 코드 조각이 cond에 신호를 보낼 때까지 기다립니다. 
+      cond가 신호를 받은 후 반환되기 전에 잠금을 다시 획득합니다. 
+      이 함수를 호출하기 전에 잠금을 유지해야 합니다. 
+      신호를 보내고 대기에서 깨어나는 것은 원자적 작업이 아닙니다. 
+      따라서 일반적 cond_wait()으로 의 호출자는 대기가 완료된 후 조건을 다시 확인하고 필요한 경우 다시 기다려야 합니다. 
+      예를 보려면 다음 섹션을 참조하세요.
+
+      void cond_signal (struct condition *cond, struct lock *lock);
+      스레드가 cond(모니터 잠금 잠금으로 보호됨)를 기다리고 있는 경우 이 함수는 스레드 중 하나를 깨웁니다. 
+      대기 중인 스레드가 없으면 어떤 작업도 수행하지 않고 반환됩니다. 
+      이 함수를 호출하기 전에 잠금을 유지해야 합니다.
+
+      void cond_broadcast (struct condition *cond, struct lock *lock);
+      조건을 기다리고 있는 모든 스레드를 깨웁니다(모니터 잠금 잠금으로 보호됨). 이 함수를 호출하기 전에 잠금을 유지해야 합니다.
+
+
+
+과제 1. 
+
+timer_sleep을 수정하고 바쁜대기를 해소할 것
+
+
+시간이 최소 x 타이머 틱만큼 진행될 때까지 호출 스레드의 실행을 일시 중단합니다.
+--그동안 타임인터럽트 정지 필요
+
+시스템이 유휴 상태가 아닌 이상 스레드는 정확히 x 틱 후에 깨어날 필요가 없습니다. 
+적절한 시간 동안 기다린 후 준비 대기열에 넣기만 하면 됩니다.
+
+
+과제 2.
+
+ - 현재 실행 중인 스레드보다 우선순위가 높은 준비 목록에 스레드가 추가되면 현재 스레드는 즉시 프로세서를 새 스레드에 양보해야 합니다. 
+ - 스레드가 잠금, 세마포어 또는 조건 변수를 기다리고 있는 경우 
+   우선 순위가 가장 높은 대기 스레드가 먼저 깨어나야 합니다.
+ - 스레드는 언제든지 자체 우선순위를 높이거나 낮출 수 있지만 
+   더 이상 가장 높은 우선순위를 가지지 않도록 우선순위를 낮추면 즉시 CPU를 양보해야 합니다.
+ - 우선순위 역전을 기부하여 해소할 것
+ - 잠금에 대한 우선순위 기부를 구현해야 합니다. 
+ - 스레드가 자체 우선순위를 검사하고 수정할 수 있도록 다음 함수를 구현
+      void thread_set_priority (int new_priority);
+      현재 스레드의 우선순위를 새 우선순위로 설정합니다. 현재 스레드가 더 이상 가장 높은 우선 순위를 갖지 않으면 항복합니다.
+
+      int thread_get_priority (void);
+      현재 스레드의 우선순위를 반환합니다. 우선순위 기부가 있는 경우 더 높은(기부된) 우선순위를 반환합니다.
+
+
+C:\krafton\krafton 8week PintOS\personal_guide
+C:\krafton\krafton 8week PintOS\pintos-kaist\personal_guide
+
+
+
+list_insert_ordered
+(struct list *list, struct list_elem *elem,
+		list_less_func *less, void *aux) {
+list_less_func
+
+>>>>>>> 6bbde9157adb13c893e61a70721d6a8f145d4112
+ctrl alt k 북마크

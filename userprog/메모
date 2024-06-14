@@ -1,0 +1,221 @@
+
+GDB 사용법
+//GDB 환경 구성
+pintos --gdb -- run alarm-simultaneous
+pintos -- -q run alarm-multiple
+pintos --gdb -- -q run alarm-multiple
+gdb kernel.o
+layout src
+target remote localhost:1234
+break lock_acquire
+break list_removec
+break lock_release
+b test_priority_donate_one
+b thread_create
+c
+
+gdb kernel.o
+set glibc 2.27
+set exception-verbose on
+set exception-debugger on
+target remote localhost:1234
+
+
+pintos --gdb --fs-disk=10 -p tests/userprog/args-single:args-single -- -q -f run 'args-single onearg'
+
+기본 디버깅:
+
+bash
+코드 복사
+gdb ./your_binary
+컨텍스트 보기:
+
+bash
+코드 복사
+(gdb) context
+힙 상태 분석:
+
+bash
+코드 복사
+(gdb) heap
+레지스터 보기:
+
+bash
+코드 복사
+(gdb) context regs
+메모리 맵 보기:
+
+bash
+코드 복사
+(gdb) vmmap
+ROP 가젯 검색:
+
+bash
+코드 복사
+(gdb) rop
+메모리에서 패턴 검색:
+
+bash
+코드 복사
+(gdb) search-pattern <pattern>
+
+메모리 덤프 및 힙 분석:
+
+heap 명령어는 힙 상태를 시각화하고 분석하는 데 유용합니다.
+vis_heap_chunks 명령어를 통해 힙 청크를 시각화할 수 있습니다.
+레지스터와 스택 시각화:
+
+context 명령어는 현재 레지스터, 스택, 디스어셈블된 코드, 소스 코드 등 디버깅에 필요한 정보를 한 화면에 보여줍니다.
+context regs 명령어를 통해 레지스터의 상태를 볼 수 있습니다.
+심볼 및 함수 탐색:
+
+info functions 명령어는 현재 디버그 대상의 모든 함수 목록을 제공합니다.
+search-pattern 명령어를 통해 특정 패턴을 메모리에서 검색할 수 있습니다.
+메모리 보호 및 권한 분석:
+
+vmmap 명령어는 메모리 맵을 시각화하여 메모리 보호 상태를 쉽게 확인할 수 있게 해줍니다.
+편리한 GDB 확장 기능:
+
+rop 명령어는 ROP (Return-Oriented Programming) 가젯을 검색하는 데 사용됩니다.
+nextcall 명령어는 다음 호출되는 함수를 예측합니다.
+
+gdb kernel.o
+layout src
+target remote localhost:1234
+break test_mlfqs_load_1
+
+
+핀토스는 아래와 같은 유틸로 실행환경을 구성해야한다.
+    pintos-mkdisk filesys.dsk
+    pintos --fs-disk filesys.dsk -- run ~~~~~
+    pintos --fs-disk filesys.dsk -- KERNEL_COMMANDS...
+    pintos SCRIPT_COMMANDS -- -f -q
+
+pintos 내 파일 생성
+    pintos -p file -- -q
+
+새이름으로 pintos 내 파일 생성
+    pintos -p file:newname -- -q
+
+아래에 구현되어 있으나 옵셔널
+    filesys/fsutil.c
+
+테스트 예시
+    pintos-mkdisk filesys.dsk 10
+    pintos --fs-disk filesys.dsk -p tests/userprog/args-single:args-single -- -q -f run 'args-single onearg'
+    나중에 사용하거나 검사하기 위해 파일 시스템 디스크를 보관하고 싶지 않은 경우 네 단계를 모두 단일 명령으로 결합할 수도 있습니다. 
+    이 --filesys-size=n옵션은 pintos 실행 기간 동안 약 n 메가바이트 크기의 임시 파일 시스템 파티션을 생성합니다. 
+    Pintos 자동 테스트 스위트는 다음 구문을 광범위하게 사용합니다.
+
+자동테스트
+    pintos --fs-disk=10 -p tests/userprog/args-single:args-single -- -q -f run 'args-single onearg'
+
+특정 실행 파일의 레이아웃을 보려면 -p옵션과 함께 objdump를 실행하십시오.
+
+-f 포멧
+
+
+즉, 가상 주소 KERN_BASE는 물리 주소 0에 해당하고, 
+가상 주소 KERN_BASE + 0x1234는 물리 주소 0x1234에 해당하며, 
+이와 같이 기계의 물리 메모리 크기까지 이어집니다.
+0x1234 == 4096  4KB?
+
+사용자 메모리 엑세스 참조 소스 
+    include/threads/vaddr.h
+    thread/mmu.c
+
+사용자 메모리 엑세스 참조 2안 코드
+/* Reads a byte at user virtual address UADDR.
+ * UADDR must be below KERN_BASE.
+ * Returns the byte value if successful, -1 if a segfault
+ * occurred. */
+static int64_t
+get_user (const uint8_t *uaddr) {
+    int64_t result;
+    __asm __volatile (
+    "movabsq $done_get, %0\n"
+    "movzbq %1, %0\n"
+    "done_get:\n"
+    : "=&a" (result) : "m" (*uaddr));
+    return result;
+}
+
+/* Writes BYTE to user address UDST.
+ * UDST must be below KERN_BASE.
+ * Returns true if successful, false if a segfault occurred. */
+static bool
+put_user (uint8_t *udst, uint8_t byte) {
+    int64_t error_code;
+    __asm __volatile (
+    "movabsq $done_put, %0\n"
+    "movb %b2, %1\n"
+    "done_put:\n"
+    : "=&a" (error_code), "=m" (*udst) : "q" (byte));
+    return error_code != -1;
+}
+
+
+x86-64 시스템 인수 호출 저장 레지스터
+    인수        유형	    레지스터
+    정수/포인터 인수 1-6	RDI, RSI, RDX, RCX, R8, R9
+    리프 노드 함수(다른 함수를 호출하지 않는 함수)의 경우 
+    함수의 스택 포인터 바로 아래에 128바이트 공간이 저장(이는 레드존)
+
+
+
+명령어를 단어별로 나누어 보겠습니다: /bin/ls, -l, foo, bar.
+이 단어들을 스택의 맨 위에 배치합니다. 순서는 중요하지 않습니다. 
+왜냐하면 포인터를 통해 참조되기 때문입니다.
+각 문자열의 주소와 널 포인터 센티널을 오른쪽에서 왼쪽으로 스택에 푸시합니다. 
+이것들이 argv의 요소들입니다. 널 포인터 센티널은 
+C 표준에서 요구하는대로 argv[argc]가 널 포인터임을 보장합니다. 
+순서는 argv[0]가 가장 낮은 가상 주소에 위치하도록 합니다. 
+워드에 정렬된 액세스는 정렬되지 않은 액세스보다 빠르기 때문에 가장 빠른 성능을 위해 
+첫 번째 푸시 전에 스택 포인터를 8의 배수로 내림합니다.
+%rsi를 argv(즉, argv[0]의 주소)를 가리키도록하고 %rdi를 argc로 설정합니다.
+마지막으로 가짜 "리턴 주소"를 푸시합니다: 진입 함수는 결코 반환되지 않지만, 
+그것의 스택 프레임은 다른 것과 동일한 구조를 가져야 합니다.
+커널메모리에 접근하지 말 것
+
+argv argv[0] %rdi argc
+
+사용자 수준 응용 프로그램은 정수 레지스터로 %rdi, %rsi, %rdx, %rcx, %r8 및 %r9 시퀀스를 전달합니다.
+호출자는 스택에 다음 명령의 주소(리턴 주소)를 푸시하고 호출된 함수의 첫 번째 명령어로 점프합니다. 단일 x86-64 명령어인 CALL은 둘 다 수행합니다.
+호출된 함수가 실행됩니다.
+호출된 함수가 반환 값을 가지면 이를 레지스터 RAX에 저장합니다.
+호출된 함수는 스택에서 리턴 주소를 팝하고 x86-64 RET 명령어를 사용하여 지정된 위치로 점프하여 반환합니다.
+세 개의 int 인수를 가져오는 함수 f()를 고려해 보겠습니다. 이 다이어그램은 f()가 f(1, 2, 3)으로 호출될 때 호출된 함수에 의해 보이는 샘플 
+스택 프레임과 레지스터 상태를 보여줍니다. 
+초기 스택 주소는 임의로 선택됩니다.
+
+//문자 전달 시 파싱 참조
+strtok_r()
+
+
+인터럽트 스택에서 사용자 스택으로 점프하는 기능이 현재 없음으로 추가필요함
+
+Kernel_thread() -> initd() -> process_exec() -> load()
+Kernel_thread() -> initd() -> process_exec() -> do_iret()
+
+pintos --fs-disk=10 -p tests/userprog/args-single:args-single -- -q -f run 'args-single onearg'
+pintos –v -- run ‘echo x’
+
+아래 함수로 현재 유저 vaddr 인지 커널 vaddr인지 체크
+/* Returns true if VADDR is a user virtual address. */
+#define is_user_vaddr(vaddr) (!is_kernel_vaddr((vaddr)))
+
+/* Returns true if VADDR is a kernel virtual address. */
+#define is_kernel_vaddr(vaddr) ((uint64_t)(vaddr) >= KERN_BASE)
+
+// FIXME: add checking
+/* Returns kernel virtual address at which physical address PADDR
+ *  is mapped. */
+#define ptov(paddr) ((void *) (((uint64_t) paddr) + KERN_BASE))
+
+/* Returns physical address at which kernel virtual address VADDR
+ * is mapped. */
+#define vtop(vaddr) \
+({ \
+	ASSERT(is_kernel_vaddr(vaddr)); \
+	((uint64_t) (vaddr) - (uint64_t) KERN_BASE);\
+})
